@@ -14,23 +14,33 @@ def get_selic():
     df["DataFimVigencia"] = df["DataFimVigencia"].fillna(datetime.datetime.today().date())
     return df
 
-
-def calc_general_stats(df:pd.DataFrame):
+def calc_general_stats(df: pd.DataFrame) -> pd.DataFrame:
+    # Garante que as datas estejam ordenadas cronologicamente antes dos cálculos de janela
     df_data = df.groupby(by="Data")[["Valor"]].sum()
+    df_data = df_data.sort_values("Data")
+
+    # Shift de 1 mês
     df_data["lag_1"] = df_data["Valor"].shift(1)
     df_data["Diferença Mensal Abs."] = df_data["Valor"] - df_data["lag_1"]
+    df_data["Diferença Mensal Rel."] = df_data["Valor"] / df_data["lag_1"] - 1
+
+    # Médias Móveis da Diferença Mensal
     df_data["Média 6M Diferença Mensal Abs."] = df_data["Diferença Mensal Abs."].rolling(6).mean()
     df_data["Média 12M Diferença Mensal Abs."] = df_data["Diferença Mensal Abs."].rolling(12).mean()
     df_data["Média 24M Diferença Mensal Abs."] = df_data["Diferença Mensal Abs."].rolling(24).mean()
-    df_data["Diferença Mensal Rel."] = df_data["Valor"] / df_data["lag_1"] - 1
-    # df_data["Evolução 6M Total"] = df_data["Valor"].rolling(6).apply(lambda x: x[-1] - x[0])
-    # df_data["Evolução 12M Total"] = df_data["Valor"].rolling(12).apply(lambda x: x[-1] - x[0])
-    # df_data["Evolução 24M Total"] = df_data["Valor"].rolling(24).apply(lambda x: x[-1] - x[0])
-    # df_data["Evolução 6M Relativa"] = df_data["Valor"].rolling(6).apply(lambda x: x[-1] / x[0] - 1)
-    # df_data["Evolução 12M Relativa"] = df_data["Valor"].rolling(12).apply(lambda x: x[-1] / x[0] - 1)
-    # df_data["Evolução 24M Relativa"] = df_data["Valor"].rolling(24).apply(lambda x: x[-1] / x[0] - 1)
 
-    df_data = df_data.drop("lag_1", axis=1)
+    # Evoluções Totais (Diferença para N meses atrás) - Usando .shift() ao invés de .apply()
+    df_data["Evolução 6M Total"] = df_data["Valor"] - df_data["Valor"].shift(5)
+    df_data["Evolução 12M Total"] = df_data["Valor"] - df_data["Valor"].shift(11)
+    df_data["Evolução 24M Total"] = df_data["Valor"] - df_data["Valor"].shift(23)
+
+    # Evoluções Relativas (% em relação a N meses atrás)
+    df_data["Evolução 6M Relativa"] = (df_data["Valor"] / df_data["Valor"].shift(5)) - 1
+    df_data["Evolução 12M Relativa"] = (df_data["Valor"] / df_data["Valor"].shift(11)) - 1
+    df_data["Evolução 24M Relativa"] = (df_data["Valor"] / df_data["Valor"].shift(23)) - 1
+
+    # Limpeza final
+    df_data = df_data.drop(columns=["lag_1"])
 
     return df_data
 
@@ -144,13 +154,13 @@ if file_upload:
         "Média 6M Diferença Mensal Abs.": st.column_config.NumberColumn("Média 6M Diferença Mensal Abs.", format='R$ %.2f'),
         "Média 12M Diferença Mensal Abs.": st.column_config.NumberColumn("Média 12M Diferença Mensal Abs.", format='R$ %.2f'),
         "Média 24M Diferença Mensal Abs.": st.column_config.NumberColumn("Média 24M Diferença Mensal Abs.", format='R$ %.2f'),
-        # "Evolução 6M Total": st.column_config.NumberColumn("Evolução 6M Total", format='R$ %.2f'),
-        # "Evolução 12M Total": st.column_config.NumberColumn("Evolução 12M Total", format='R$ %.2f'),
-        # "Evolução 24M Total": st.column_config.NumberColumn("Evolução 24M Total", format='R$ %.2f'),
-        # "Diferença Mensal Rel.": st.column_config.NumberColumn("Diferença Mensal Rel.", format='percent'),
-        # "Evolução 6M Relativa": st.column_config.NumberColumn("Evolução 6M Relativa", format='percent'),
-        # "Evolução 12M Relativa": st.column_config.NumberColumn("Evolução 12M Relativa", format='percent'),
-        # "Evolução 24M Relativa": st.column_config.NumberColumn("Evolução 24M Relativa", format='percent'),
+        "Evolução 6M Total": st.column_config.NumberColumn("Evolução 6M Total", format='R$ %.2f'),
+        "Evolução 12M Total": st.column_config.NumberColumn("Evolução 12M Total", format='R$ %.2f'),
+        "Evolução 24M Total": st.column_config.NumberColumn("Evolução 24M Total", format='R$ %.2f'),
+        "Diferença Mensal Rel.": st.column_config.NumberColumn("Diferença Mensal Rel.", format='percent'),
+        "Evolução 6M Relativa": st.column_config.NumberColumn("Evolução 6M Relativa", format='percent'),
+        "Evolução 12M Relativa": st.column_config.NumberColumn("Evolução 12M Relativa", format='percent'),
+        "Evolução 24M Relativa": st.column_config.NumberColumn("Evolução 24M Relativa", format='percent'),
     }
 
     # tabs para navegar em diferentes visões e gráficos
